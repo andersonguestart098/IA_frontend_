@@ -100,7 +100,7 @@ export default function MainScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Digite sua pergunta para a IA"
+        placeholder="Digite sua pergunta para a I.A"
         value={question}
         onChangeText={setQuestion}
         multiline
