@@ -16,7 +16,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function StackNavigator() {
   return (
     <Stack.Navigator initialRouteName="Main">
-      <Stack.Screen name="Main" component={MainScreen} options={{ title: 'Chat IA - Cemear' }} />
+      <Stack.Screen name="Main" component={MainScreen} options={{ title: 'Agente' }} />
       <Stack.Screen name="Calculation" component={CalculationScreen} options={{ title: 'Cálculo de Materiais' }} />
       <Stack.Screen name="PlantaUpload" component={PlantaUploadScreen} options={{ title: 'Interpretar Planta' }} />
     </Stack.Navigator>
