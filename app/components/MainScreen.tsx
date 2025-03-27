@@ -2,154 +2,156 @@ import React, { useState } from 'react';
 import {
   View,
   TextInput,
-  Button,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import axios from 'axios';
-import { useNavigation } from '@react-navigation/native';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { RootStackParamList } from '../navigation/StackNavigator';
-
-
-type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Main'>;
 
 export default function MainScreen() {
-  const navigation = useNavigation<NavigationProp>(); // ✅ Agora está dentro da função
-
   const [question, setQuestion] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState('');
   const [feedbackSent, setFeedbackSent] = useState(false);
-  const [error, setError] = useState('');
+  const [uploadFile, setUploadFile] = useState<any>(null);
+  const [uploadStatus, setUploadStatus] = useState('');
 
   const handleAsk = async () => {
     try {
       setLoading(true);
-      setFeedbackSent(false);
-      setError(''); // Limpa o erro anterior
-      setResponse(''); // Limpa a resposta anterior
-      const res = await axios.post('http://192.168.100.2:8000/chat', { question }); // Substitua pela URL do ngrok
-      const answer = res.data.answer;
-      if (!answer || answer.trim() === '') {
-        throw new Error('Nenhuma resposta recebida do servidor.');
-      }
-      setResponse(answer);
-    } catch (error: any) {
-      setError(error.message || 'Erro ao buscar resposta da IA.');
       setResponse('');
+      setFeedbackSent(false);
+
+      // Se houver arquivo, use o endpoint de interpretação inteligente
+      if (uploadFile) {
+        const formData = new FormData();
+        formData.append('file', {
+          uri: uploadFile.uri,
+          name: uploadFile.name,
+          type: uploadFile.mimeType || '*/*',
+        } as any);
+        formData.append('contexto', question); // Texto como contexto
+
+        const res = await axios.post('http://192.168.100.2:8000/upload-interpreta', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+
+        setResponse(res.data.resposta_ia);
+        setUploadStatus('✅ Arquivo interpretado com sucesso!');
+      } else {
+        // Sem arquivo → só texto
+        const res = await axios.post('http://192.168.100.2:8000/chat', { question });
+        setResponse(res.data.answer);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Erro', 'Erro ao buscar resposta da IA.');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleUpload = async () => {
+  const handleFileSelect = async () => {
+    const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
+    if (!result.canceled && result.assets.length > 0) {
+      setUploadFile(result.assets[0]);
+      setUploadStatus(`📎 Arquivo anexado: ${result.assets[0].name}`);
+    }
+  };
+
+  const handleUploadConhecimento = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({ type: '*/*' });
-      if (result?.assets && result.assets.length > 0) {
+      if (!result.canceled && result.assets.length > 0) {
         const file = result.assets[0];
-  
+
         const formData = new FormData();
         formData.append('file', {
           uri: file.uri,
           name: file.name,
           type: file.mimeType || '*/*',
         } as any);
-  
-        setUploadStatus('Enviando...');
+
+        setUploadStatus('Enviando conhecimento...');
         await axios.post('http://192.168.100.2:8000/upload', formData, {
           headers: { 'Content-Type': 'multipart/form-data' },
         });
-  
-        if (file.mimeType?.startsWith('image/')) {
-          setUploadStatus('Imagem enviada! A IA irá interpretar a planta.');
-        } else {
-          setUploadStatus('Arquivo enviado com sucesso!');
-        }
-      } else {
-        setUploadStatus('Nenhum arquivo selecionado.');
+
+        setUploadStatus('✅ Conhecimento enviado com sucesso!');
       }
-    } catch (error) {
-      console.error(error);
-      setUploadStatus('Erro ao enviar o arquivo.');
+    } catch (err) {
+      console.error(err);
+      setUploadStatus('❌ Erro ao enviar conhecimento.');
     }
   };
-  
 
-  const handleFeedback = async (feedback: 'certa' | 'errada' | 'melhorar') => {
+  const handleFeedback = async (tipo: 'certa' | 'errada' | 'melhorar') => {
     try {
       await axios.post('http://192.168.100.2:8000/feedback', {
         question,
         answer: response,
-        feedback,
+        feedback: tipo,
+        contextoUsuario: question,
+        origemPlanta: uploadFile?.name || '',
       });
       setFeedbackSent(true);
-    } catch (error) {
-      console.error('Erro ao enviar feedback:', error);
+    } catch (err) {
+      console.error('Erro ao enviar feedback:', err);
     }
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>Chat IA - Cemear</Text>
+      <Text style={styles.title}>Cemear IA 🧠</Text>
 
       <TextInput
         style={styles.input}
-        placeholder="Digite sua pergunta para a I.A"
+        placeholder="Digite sua pergunta ou contexto..."
         value={question}
         onChangeText={setQuestion}
         multiline
       />
 
-      <Button title="Perguntar" onPress={handleAsk} />
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleFileSelect}>
+        <Text style={styles.secondaryButtonText}>📎 Anexar imagem ou PDF</Text>
+      </TouchableOpacity>
 
-    {loading && <ActivityIndicator style={{ marginTop: 10 }} />}
+      <TouchableOpacity style={styles.button} onPress={handleAsk}>
+        <Text style={styles.buttonText}>🔍 Perguntar à IA</Text>
+      </TouchableOpacity>
 
-      {error !== '' && (
-        <Text style={styles.error}>{error}</Text>
-      )}
-
-      {response !== '' && (
-        <View style={styles.responseContainer}>
-          <Text style={styles.responseLabel}>Resposta:</Text>
-          <Text style={styles.responseText}>{response}</Text>
-
-          {!feedbackSent && (
-            <View style={styles.feedbackRow}>
-              <TouchableOpacity style={styles.feedbackButton} onPress={() => handleFeedback('certa')}>
-                <Text style={styles.feedbackText}>👍 Certa</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.feedbackButton} onPress={() => handleFeedback('errada')}>
-                <Text style={styles.feedbackText}>👎 Errada</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.feedbackButton} onPress={() => handleFeedback('melhorar')}>
-                <Text style={styles.feedbackText}>📝 Pode melhorar</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {feedbackSent && <Text style={styles.status}>Obrigado pelo feedback!</Text>}
-        </View>
-      )}
-
-      <TouchableOpacity style={styles.uploadButton} onPress={handleUpload}>
-        <Text style={styles.uploadText}>Enviar Arquivo para a IA</Text>
+      <TouchableOpacity style={styles.secondaryButton} onPress={handleUploadConhecimento}>
+        <Text style={styles.secondaryButtonText}>📚 Enviar documento para a base</Text>
       </TouchableOpacity>
 
       {uploadStatus !== '' && <Text style={styles.status}>{uploadStatus}</Text>}
 
-      <TouchableOpacity
-      style={styles.calcButton}
-      onPress={() => navigation.navigate('PlantaUpload')}
-    >
-      <Text style={styles.calcText}>Ir para Cálculo de Materiais</Text>
-    </TouchableOpacity>
+      {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
 
+      {response !== '' && (
+        <View style={styles.resultBox}>
+          <Text style={styles.resultLabel}>💡 Resposta:</Text>
+          <Text style={styles.resultText}>{response}</Text>
+
+          {!feedbackSent && (
+            <View style={styles.feedbackRow}>
+              <TouchableOpacity onPress={() => handleFeedback('certa')}>
+                <Text style={styles.feedbackBtn}>👍 Certa</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleFeedback('errada')}>
+                <Text style={styles.feedbackBtn}>👎 Errada</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleFeedback('melhorar')}>
+                <Text style={styles.feedbackBtn}>📝 Melhorar</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+      )}
     </ScrollView>
   );
 }
@@ -158,89 +160,79 @@ const styles = StyleSheet.create({
   container: {
     padding: 20,
     paddingTop: 60,
-    backgroundColor: '#f0f4f8',
+    backgroundColor: '#f8fafc',
     flexGrow: 1,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 20,
+    marginBottom: 25,
     textAlign: 'center',
+    color: '#0f172a',
   },
   input: {
-    height: 100,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
     backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    marginBottom: 12,
   },
-  responseContainer: {
+  button: {
+    backgroundColor: '#00AEEF',
+    paddingVertical: 14,
+    borderRadius: 10,
+    marginBottom: 16,
+  },
+  buttonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  secondaryButton: {
+    backgroundColor: '#e2e8f0',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  secondaryButtonText: {
+    textAlign: 'center',
+    color: '#1e293b',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  status: {
+    textAlign: 'center',
+    marginTop: 10,
+    color: '#334155',
+  },
+  resultBox: {
     marginTop: 20,
     backgroundColor: '#e0f7e9',
     padding: 15,
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#28a745',
   },
-  responseLabel: {
-    fontSize: 18,
+  resultLabel: {
     fontWeight: 'bold',
-    color: '#28a745',
-    marginBottom: 5,
-  },
-  responseText: {
+    marginBottom: 6,
     fontSize: 16,
-    color: '#333',
-    lineHeight: 24,
+  },
+  resultText: {
+    fontSize: 15,
+    color: '#1e293b',
   },
   feedbackRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 15,
+    marginTop: 12,
   },
-  feedbackButton: {
-    backgroundColor: '#dedede',
-    paddingVertical: 8,
-    paddingHorizontal: 15,
+  feedbackBtn: {
+    backgroundColor: '#f1f5f9',
+    padding: 10,
     borderRadius: 8,
-  },
-  feedbackText: {
-    fontSize: 14,
+    color: '#1e293b',
     fontWeight: '600',
-  },
-  uploadButton: {
-    marginTop: 30,
-    backgroundColor: '#007bff',
-    padding: 15,
-    borderRadius: 10,
-  },
-  uploadText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  calcButton: {
-    marginTop: 20,
-    backgroundColor: '#28a745',
-    padding: 15,
-    borderRadius: 10,
-  },
-  calcText: {
-    color: '#fff',
-    textAlign: 'center',
-    fontWeight: 'bold',
-  },
-  status: {
-    marginTop: 10,
-    textAlign: 'center',
-    color: '#333',
-  },
-  error: {
-    marginTop: 10,
-    textAlign: 'center',
-    color: 'red',
-    fontSize: 16,
   },
 });

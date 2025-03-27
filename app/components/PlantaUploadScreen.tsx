@@ -58,7 +58,7 @@ export default function PlantaUploadScreen() {
 
       <TextInput
         style={styles.textInput}
-        placeholder="Adicione observações sobre a planta (ex: local, tipo de projeto...)"
+        placeholder="Adicione observações sobre a planta (ex: forro, local, tipo de projeto...)"
         multiline
         numberOfLines={4}
         value={contexto}
@@ -71,6 +71,7 @@ export default function PlantaUploadScreen() {
 
       {uploadStatus !== '' && <Text style={styles.status}>{uploadStatus}</Text>}
       {loading && <ActivityIndicator size="large" style={{ marginTop: 20 }} />}
+
       {resultado && resultado.materiais_estimados && (
         <View style={styles.resultBox}>
           <Text style={styles.resultText}>Área: {resultado.materiais_estimados.area_total_m2} m²</Text>
@@ -85,8 +86,16 @@ export default function PlantaUploadScreen() {
           <Text style={styles.resultText}>
             Medidas OCR: {resultado.medidas_detectadas.largura_metros}m x {resultado.medidas_detectadas.altura_metros}m
           </Text>
+
+          {resultado?.resposta_ia && (
+            <>
+              <Text style={[styles.resultText, { marginTop: 10, fontWeight: 'bold' }]}>💡 Resposta Inteligente:</Text>
+              <Text style={styles.resultText}>{resultado.resposta_ia}</Text>
+            </>
+          )}
         </View>
       )}
+
     </ScrollView>
   );
 }
