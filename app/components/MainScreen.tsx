@@ -18,7 +18,7 @@ import { RootStackParamList } from '../navigation/StackNavigator';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import LottieView from 'lottie-react-native';
 import CemearLogo from '../../assets/logo.png';
-import AIAnimation from '../../assets/Animation - 1743098322893.json';
+import AIAnimation from '../../assets/Animation - 1743167573251.json';
 
 export default function MainScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -269,8 +269,9 @@ const styles = StyleSheet.create({
     height: 50,
   },
   lottieAnimation: {
-    width: 100,
-    height: 100,
+    width: 180,
+    height: 180,
+    paddingBottom: 10
   },
   input: {
     backgroundColor: 'white',
